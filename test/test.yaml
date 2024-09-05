@@ -1,0 +1,19 @@
+functions:
+  - name: RunPython
+    description: Python code execution
+    parameters:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          description: the Python code you want to run
+  - name: WebSearch
+    description: use online search engine to search
+    parameters:
+      type: object
+      required: [query]
+      properties:
+        query:
+          type: string
+          description: the search content, keep it simple, no longer than 36 characters
