@@ -2,6 +2,11 @@
 
 ## Quick Start
 
+0. Install `tcgen`:
+    ```shell
+    go install github.com/cloudcarver/tcgen/cmd/tcgen@latest
+    ```
+
 1. Define tool calls in `test.yaml`:
     ```yaml
     functions:
