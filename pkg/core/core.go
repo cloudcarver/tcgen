@@ -73,7 +73,7 @@ func Generate(data map[string]any) (string, error) {
 		})
 	}
 
-	functionsDef, err := json.MarshalIndent(fns, "", "  ")
+	functionsDef, err := json.Marshal(fns)
 	if err != nil {
 		return "", err
 	}
