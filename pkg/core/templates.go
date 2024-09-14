@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"fmt"
 )
+const FunctionsDef = ` + "`" + `{{.FunctionsDef}}` + "`" + `
 {{.StructDefs}}
 {{range .Functions}}
 func (r *{{.ParameterType}}) Parse(raw string) error {

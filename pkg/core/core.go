@@ -2,6 +2,7 @@ package core
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -72,11 +73,17 @@ func Generate(data map[string]any) (string, error) {
 		})
 	}
 
+	functionsDef, err := json.MarshalIndent(fns, "", "  ")
+	if err != nil {
+		return "", err
+	}
+
 	buf := bytes.NewBuffer([]byte{})
 	if err := fnTemplate.Execute(buf, CodeTemplateVars{
-		PackageName: "fn",
-		StructDefs:  structDef,
-		Functions:   functions,
+		FunctionsDef: string(functionsDef),
+		PackageName:  "fn",
+		StructDefs:   structDef,
+		Functions:    functions,
 	}); err != nil {
 		return "", err
 	}
