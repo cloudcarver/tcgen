@@ -4,16 +4,42 @@ import (
 	"encoding/json"
 	"fmt"
 )
+
 type RunPythonParameters struct {
 	
 	// the Python code you want to run
 	Code string `json:"code" yaml:"code"`
 	
 }
+
 type WebSearchParameters struct {
 	
 	// the search content, keep it simple, no longer than 36 characters
 	Query string `json:"query" yaml:"query"`
+	
+}
+
+type DatasetsItem struct {
+	
+	// the x value
+	X float64 `json:"x" yaml:"x"`
+	
+	// the y value
+	Y float64 `json:"y" yaml:"y"`
+	
+}
+
+type DataItem struct {
+	
+	// 
+	Datasets [][]DatasetsItem `json:"datasets" yaml:"datasets"`
+	
+}
+
+type PlotMatrixParameters struct {
+	
+	// 
+	Data []DataItem `json:"data" yaml:"data"`
 	
 }
 
@@ -26,6 +52,10 @@ func (r *WebSearchParameters) Parse(raw string) error {
 	return json.Unmarshal([]byte(raw), r)
 }
 
+func (r *PlotMatrixParameters) Parse(raw string) error {
+	return json.Unmarshal([]byte(raw), r)
+}
+
 type FunctionExecutorInterface interface {
 	
 	// Python code execution
@@ -33,6 +63,9 @@ type FunctionExecutorInterface interface {
 	
 	// use online search engine to search
 	WebSearch(params *WebSearchParameters) (string, error)
+	
+	// plot a matrix
+	PlotMatrix(params *PlotMatrixParameters) (string, error)
 	
 }
 type FunctionCaller struct {
@@ -59,6 +92,13 @@ func (f *FunctionCaller) Call(fnName string, paramJSON string) (string, error) {
 			return "", fmt.Errorf("failed to parse WebSearch parameters: %w", err)
 		}
 		return f.executor.WebSearch(&params)
+		
+	case "PlotMatrix":
+		var params PlotMatrixParameters
+		if err := params.Parse(paramJSON); err != nil {
+			return "", fmt.Errorf("failed to parse PlotMatrix parameters: %w", err)
+		}
+		return f.executor.PlotMatrix(&params)
 		
 	default:
 		return "", fmt.Errorf("unknown function %s", fnName)

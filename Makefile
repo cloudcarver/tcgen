@@ -1,5 +1,5 @@
 build:
-	go build -o bin/$(shell basename $(PWD)) cmd/main.go
+	go build -o bin/$(shell basename $(PWD)) cmd/tcgen/main.go
 
-e2e:
+e2e: build
 	@cd test && python3 test.py

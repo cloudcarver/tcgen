@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"text/template"
 
 	"github.com/cloudcarver/tcgen/internal/utils"
@@ -85,23 +86,72 @@ func Generate(data map[string]any) (string, error) {
 
 var globalTypeNameCounter = map[string]int{}
 
+func addGlobalType(name string) string {
+	if _, ok := globalTypeNameCounter[name]; ok {
+		globalTypeNameCounter[name]++
+		return fmt.Sprintf("%s%d", name, globalTypeNameCounter[name])
+	} else {
+		globalTypeNameCounter[name] = 0
+		return name
+	}
+}
+
+func parseArrayToStruct(name string, data map[string]any) (string, string, error) {
+	items, ok := data["items"].(map[string]any)
+	if !ok {
+		return "", "", errors.New("items cannot be parsed to a map")
+	}
+	itemsType, ok := items["type"].(string)
+	if !ok {
+		return "", "", errors.New("items type cannot be parsed to a string")
+	}
+
+	if itemsType == "object" {
+		propStructName, propStructDef, err := parseObjectToStruct(utils.UpperFirst(name)+"Item", items)
+		if err != nil {
+			return "", "", err
+		}
+		return "[]" + propStructName, propStructDef, nil
+	} else if itemsType == "array" {
+		propStructName, propStructDef, err := parseArrayToStruct(name, items)
+		if err != nil {
+			return "", "", err
+		}
+		return "[]" + propStructName, propStructDef, nil
+	} else {
+		return "[]" + typeMap(itemsType), "", nil
+	}
+}
+
+func typeMap(typeName string) string {
+	switch typeName {
+	case "string":
+		return "string"
+	case "integer":
+		return "int"
+	case "number":
+		return "float64"
+	case "boolean":
+		return "bool"
+	default:
+		return typeName
+	}
+}
+
+// return struct name, struct definition, error
 func parseObjectToStruct(name string, object map[string]any) (string, string, error) {
 	var ok bool
 	var requiredFields = map[string]struct{}{}
 	var properties map[string]any
 	var structName string
 	var structDef string
-	if _, ok := globalTypeNameCounter[name]; ok {
-		globalTypeNameCounter[name]++
-		structName = fmt.Sprintf("%s%d", name, globalTypeNameCounter[name])
-	} else {
-		globalTypeNameCounter[name] = 0
-		structName = name
-	}
+
+	structName = addGlobalType(name)
 
 	if _, ok := object["properties"]; !ok {
 		return "", "", errors.New("properties is missing")
 	}
+
 	properties, ok = object["properties"].(map[string]any)
 	if !ok {
 		return "", "", fmt.Errorf("properties %v cannot be parsed to map[string]map[string]any", object["properties"])
@@ -154,11 +204,20 @@ func parseObjectToStruct(name string, object map[string]any) (string, string, er
 			}
 			propType = propStructName
 			structDef += propStructDef + "\n"
+		} else if propType == "array" {
+			propStructName, propStructDef, err := parseArrayToStruct(propName, prop)
+			if err != nil {
+				return "", "", err
+			}
+			propType = propStructName
+			structDef += propStructDef + "\n"
+		} else {
+			propType = typeMap(propType)
 		}
 
 		fields = append(fields, Field{
 			Name:        utils.UpperFirst(propName),
-			Type:        utils.IfElse(isRequired, "", "*") + propType,
+			Type:        utils.IfElse(isRequired || strings.HasPrefix(propType, "[]"), "", "*") + propType,
 			Description: propDescription,
 			Tag:         "`json:\"" + propName + "\" yaml:\"" + propName + "\"`",
 		})
@@ -174,5 +233,5 @@ func parseObjectToStruct(name string, object map[string]any) (string, string, er
 		return "", "", err
 	}
 
-	return structName, buf.String(), nil
+	return structName, structDef + "\n" + buf.String(), nil
 }

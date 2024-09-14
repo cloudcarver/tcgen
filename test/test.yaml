@@ -17,3 +17,28 @@ functions:
         query:
           type: string
           description: the search content, keep it simple, no longer than 36 characters
+  - name: PlotMatrix
+    description: plot a matrix 
+    parameters:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              datasets:
+                type: array
+                items:
+                  type: array
+                  items:
+                    type: object
+                    required: [x, y]
+                    properties:
+                      x:
+                        type: number
+                        description: the x value
+                      y:
+                        type: number
+                        description: the y value
