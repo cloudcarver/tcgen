@@ -19,8 +19,7 @@ type Function struct {
 }
 
 type CodeTemplateVars struct {
-	FunctionsDef string
-	PackageName  string
-	StructDefs   string
-	Functions    []Function
+	PackageName string
+	StructDefs  string
+	Functions   []Function
 }

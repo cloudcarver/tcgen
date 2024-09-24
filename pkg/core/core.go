@@ -2,7 +2,6 @@ package core
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -10,36 +9,33 @@ import (
 	"text/template"
 
 	"github.com/cloudcarver/tcgen/internal/utils"
+	"github.com/getkin/kin-openapi/openapi3"
+	"gopkg.in/yaml.v3"
 )
 
-func Generate(data map[string]any) (string, error) {
+var globalTypeNameCounter = map[string]int{}
+
+func process(data map[string]any, onFunc func(f Function) error, onParam func(name string, params map[string]any) error) error {
 	for k := range data {
 		if k != "functions" {
-			log.Default().Printf("[WARN] tool type %s is not supported.", k)
+			log.Default().Printf("[WARN] tool type %s is not supported. Skipped.", k)
 		}
-	}
-
-	fnTemplate, err := template.New("functions").Parse(genTemplate)
-	if err != nil {
-		return "", err
 	}
 
 	fns, ok := data["functions"].([]any)
 	if !ok {
-		return "", errors.New("functions is not an array")
+		return errors.New("functions is not an array")
 	}
 
-	functions := []Function{}
-	var structDef string
 	for _, fn := range fns {
 		fnData, ok := fn.(map[string]any)
 		if !ok {
-			return "", errors.New("function cannot be parsed to a map")
+			return errors.New("function cannot be parsed to a map")
 		}
 
 		fnName, ok := fnData["name"].(string)
 		if !ok {
-			return "", errors.New("function name cannot be parsed to a string")
+			return errors.New("function name cannot be parsed to a string")
 		}
 
 		var description string
@@ -47,51 +43,249 @@ func Generate(data map[string]any) (string, error) {
 		if _, ok := fnData["description"]; ok {
 			description, ok = fnData["description"].(string)
 			if !ok {
-				return "", errors.New("function description cannot be parsed to a string")
+				return errors.New("function description cannot be parsed to a string")
 			}
 		}
 
 		// parse parameters
 		if _, ok := fnData["parameters"]; !ok {
-			return "", errors.New("parameters is missing when function type is object")
+			return errors.New("parameters is missing when function type is object")
 		}
 		parameters, ok := fnData["parameters"].(map[string]any)
 		if !ok {
-			return "", errors.New("parameters cannot be parsed to a map")
-		}
-		paramType, paramsDef, err := parseObjectToStruct(fmt.Sprintf("%sParameters", utils.UpperFirst(fnName)), parameters)
-		if err != nil {
-			return "", err
+			return errors.New("parameters cannot be parsed to a map")
 		}
 
-		structDef += paramsDef + "\n"
+		structName := addGlobalType(fmt.Sprintf("%sParameters", utils.UpperFirst(fnName)))
+		if err := onParam(structName, parameters); err != nil {
+			return err
+		}
 
-		functions = append(functions, Function{
+		if err := onFunc(Function{
 			Name:          fnName,
 			Description:   description,
-			ParameterType: paramType,
-		})
+			ParameterType: structName,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func fnNameToAPIPath(fnName string) string {
+	rtn := ""
+	rtn += strings.ToLower(string(fnName[0]))
+	for _, c := range fnName[1:] {
+		if c >= 'A' && c <= 'Z' {
+			rtn += "_" + strings.ToLower(string(c))
+		} else {
+			rtn += string(c)
+		}
+	}
+	return rtn
+}
+
+func GenerateOpenAPISpec(original []byte, data map[string]any, pathPrefix string) (string, error) {
+
+	type Parameters struct {
+		Name string
+		Spec string
 	}
 
-	functionsDef, err := json.Marshal(fns)
+	if original == nil {
+		original = []byte("openapi: 3.1.0\ninfo:\n  version: 1.0.0\n  title:  Tool Call Server API\npaths:")
+	}
+
+	loader := openapi3.NewLoader()
+	doc, err := loader.LoadFromData(original)
 	if err != nil {
 		return "", err
 	}
 
+	functions := []Function{}
+	parameters := []Parameters{}
+
+	onFunc := func(f Function) error {
+		functions = append(functions, f)
+		if doc.Paths == nil {
+			doc.Paths = openapi3.NewPaths()
+		}
+		var descp = "OK"
+		res := &openapi3.Responses{}
+		res.Set("200", &openapi3.ResponseRef{
+			Value: &openapi3.Response{
+				Description: &descp,
+			},
+		})
+		doc.Paths.Set(fmt.Sprintf("%s/%s", pathPrefix, fnNameToAPIPath(f.Name)), &openapi3.PathItem{
+			Post: &openapi3.Operation{
+				Description: f.Description,
+				RequestBody: &openapi3.RequestBodyRef{
+					Value: &openapi3.RequestBody{
+						Content: map[string]*openapi3.MediaType{
+							"application/json": {
+								Schema: &openapi3.SchemaRef{
+									Ref: fmt.Sprintf("#/components/schemas/%s", f.ParameterType),
+								},
+							},
+						},
+					},
+				},
+				Responses: res,
+			},
+		})
+		return nil
+	}
+
+	genComponentsTemplate := `components:
+  schemas:
+{{range .Parameters}}
+    {{.Name}}:
+{{.Spec}}
+{{end}}`
+
+	type ComponentsTemplateVars struct {
+		Parameters []Parameters
+	}
+
+	onParam := func(name string, params map[string]any) error {
+		buf := bytes.Buffer{}
+		enc := yaml.NewEncoder(&buf)
+		enc.SetIndent(2)
+		err := enc.Encode(params)
+		if err != nil {
+			return err
+		}
+
+		parameters = append(parameters, Parameters{
+			Name: name,
+			Spec: indent(buf.String(), 6),
+		})
+		return nil
+	}
+
+	componentsTemplate, err := template.New("components").Parse(genComponentsTemplate)
+	if err != nil {
+		return "", err
+	}
+
+	if err := process(data, onFunc, onParam); err != nil {
+		return "", err
+	}
+
 	buf := bytes.NewBuffer([]byte{})
-	if err := fnTemplate.Execute(buf, CodeTemplateVars{
-		FunctionsDef: string(functionsDef),
-		PackageName:  "fn",
-		StructDefs:   structDef,
-		Functions:    functions,
+	if err := componentsTemplate.Execute(buf, ComponentsTemplateVars{
+		Parameters: parameters,
+	}); err != nil {
+		return "", err
+	}
+
+	componentsDoc, err := loader.LoadFromData(buf.Bytes())
+	if err != nil {
+		return "", err
+	}
+	if doc.Components == nil {
+		doc.Components = componentsDoc.Components
+	} else {
+		for k, v := range componentsDoc.Components.Schemas {
+			doc.Components.Schemas[k] = v
+		}
+	}
+
+	out, err := marshalOpenAPIDoc(doc)
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
+}
+
+func marshalWithIndent(data any, indent int) ([]byte, error) {
+	buf := bytes.Buffer{}
+	encoder := yaml.NewEncoder(&buf)
+	encoder.SetIndent(indent)
+	if err := encoder.Encode(data); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func marshalOpenAPIDoc(doc *openapi3.T) ([]byte, error) {
+	rtn := ""
+	raw, err := doc.MarshalYAML()
+	if err != nil {
+		return nil, err
+	}
+	data, ok := raw.(map[string]any)
+	if !ok {
+		return nil, errors.New("failed to marshal openapi doc")
+	}
+	openapi, err := marshalWithIndent(data["openapi"], 2)
+	if err != nil {
+		return nil, err
+	}
+	info, err := marshalWithIndent(data["info"], 2)
+	if err != nil {
+		return nil, err
+	}
+	paths, err := marshalWithIndent(data["paths"], 2)
+	if err != nil {
+		return nil, err
+	}
+
+	components, err := marshalWithIndent(data["components"], 2)
+	if err != nil {
+		return nil, err
+	}
+	rtn += "openapi: \"" + strings.Trim(string(openapi), "\n\t\r ") + "\"\n\n" +
+		"info:\n" + indent(string(info), 2) + "\n" +
+		"paths:\n" + indent(string(paths), 2) + "\n" +
+		"components:\n" + indent(string(components), 2) + "\n"
+	return []byte(rtn), nil
+}
+
+func indent(s string, spaces int) string {
+	indent := strings.Repeat(" ", spaces)
+	return indent + strings.ReplaceAll(s, "\n", "\n"+indent)
+}
+
+func GenerateToolInterfaces(packageName string, data map[string]any) (string, error) {
+	var structDef string
+	functions := []Function{}
+
+	onFunc := func(f Function) error {
+		functions = append(functions, f)
+		return nil
+	}
+
+	onParam := func(name string, params map[string]any) error {
+		def, err := parseObjectToStruct(name, params)
+		if err != nil {
+			return err
+		}
+		structDef += def + "\n"
+		return nil
+	}
+
+	tcTemplate, err := template.New("toolCalls").Parse(genToolCallsTemplate)
+	if err != nil {
+		return "", err
+	}
+
+	if err := process(data, onFunc, onParam); err != nil {
+		return "", err
+	}
+
+	buf := bytes.NewBuffer([]byte{})
+	if err := tcTemplate.Execute(buf, CodeTemplateVars{
+		PackageName: packageName,
+		StructDefs:  structDef,
+		Functions:   functions,
 	}); err != nil {
 		return "", err
 	}
 
 	return buf.String(), nil
 }
-
-var globalTypeNameCounter = map[string]int{}
 
 func addGlobalType(name string) string {
 	if _, ok := globalTypeNameCounter[name]; ok {
@@ -114,7 +308,8 @@ func parseArrayToStruct(name string, data map[string]any) (string, string, error
 	}
 
 	if itemsType == "object" {
-		propStructName, propStructDef, err := parseObjectToStruct(utils.UpperFirst(name)+"Item", items)
+		propStructName := utils.UpperFirst(name) + "Item"
+		propStructDef, err := parseObjectToStruct(propStructName, items)
 		if err != nil {
 			return "", "", err
 		}
@@ -146,32 +341,29 @@ func typeMap(typeName string) string {
 }
 
 // return struct name, struct definition, error
-func parseObjectToStruct(name string, object map[string]any) (string, string, error) {
+func parseObjectToStruct(structName string, object map[string]any) (string, error) {
 	var ok bool
 	var requiredFields = map[string]struct{}{}
 	var properties map[string]any
-	var structName string
 	var structDef string
 
-	structName = addGlobalType(name)
-
 	if _, ok := object["properties"]; !ok {
-		return "", "", errors.New("properties is missing")
+		return "", errors.New("properties is missing")
 	}
 
 	properties, ok = object["properties"].(map[string]any)
 	if !ok {
-		return "", "", fmt.Errorf("properties %v cannot be parsed to map[string]map[string]any", object["properties"])
+		return "", fmt.Errorf("properties %v cannot be parsed to map[string]map[string]any", object["properties"])
 	}
 
 	if _, ok := object["required"]; ok {
 		required, ok := object["required"].([]any)
 		if !ok {
-			return "", "", fmt.Errorf("required %v cannot be parsed to a string array", object["required"])
+			return "", fmt.Errorf("required %v cannot be parsed to a string array", object["required"])
 		}
 		for _, r := range required {
 			if _, ok := properties[r.(string)]; !ok {
-				return "", "", fmt.Errorf("required field %s is not in properties", r)
+				return "", fmt.Errorf("required field %s is not in properties", r)
 			}
 			requiredFields[r.(string)] = struct{}{}
 		}
@@ -179,7 +371,7 @@ func parseObjectToStruct(name string, object map[string]any) (string, string, er
 
 	tmpl, err := template.New("struct").Parse(structTemplate)
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
 
 	fields := []Field{}
@@ -187,34 +379,35 @@ func parseObjectToStruct(name string, object map[string]any) (string, string, er
 	for propName, propRaw := range properties {
 		prop, ok := propRaw.(map[string]any)
 		if !ok {
-			return "", "", fmt.Errorf("property %s cannot be parsed to a map", propName)
+			return "", fmt.Errorf("property %s cannot be parsed to a map", propName)
 		}
 		propType, ok := prop["type"].(string)
 		if !ok {
-			return "", "", errors.New("property type cannot be parsed to a string")
+			return "", errors.New("property type cannot be parsed to a string")
 		}
 
 		var propDescription string
 		if _, ok := prop["description"]; ok {
 			propDescription, ok = prop["description"].(string)
 			if !ok {
-				return "", "", errors.New("property description cannot be parsed to a string")
+				return "", errors.New("property description cannot be parsed to a string")
 			}
 		}
 
 		_, isRequired := requiredFields[propName]
 
 		if propType == "object" {
-			propStructName, propStructDef, err := parseObjectToStruct(propName, prop)
+			propStructName := addGlobalType(utils.UpperFirst(propName))
+			propStructDef, err := parseObjectToStruct(propStructName, prop)
 			if err != nil {
-				return "", "", err
+				return "", err
 			}
 			propType = propStructName
 			structDef += propStructDef + "\n"
 		} else if propType == "array" {
 			propStructName, propStructDef, err := parseArrayToStruct(propName, prop)
 			if err != nil {
-				return "", "", err
+				return "", err
 			}
 			propType = propStructName
 			structDef += propStructDef + "\n"
@@ -237,8 +430,8 @@ func parseObjectToStruct(name string, object map[string]any) (string, string, er
 	buf := bytes.NewBuffer([]byte{})
 
 	if err := tmpl.Execute(buf, templateVars); err != nil {
-		return "", "", err
+		return "", err
 	}
 
-	return structName, structDef + "\n" + buf.String(), nil
+	return structDef + "\n" + buf.String(), nil
 }

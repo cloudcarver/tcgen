@@ -1,0 +1,14 @@
+input:
+  path: test.yaml
+openapi:
+  overrideFile: api.yaml
+  out: api-new.yaml
+  pathPrefix: /tcgen/tc-call
+  paths:
+    methods:
+      override:
+        security:
+          - bearerAuth: []
+goInterpreter:
+  outPath: /testmod/fn/fn_gen.go
+  package: fn

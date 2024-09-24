@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 )
-const FunctionsDef = `[{"description":"Python code execution","name":"RunPython","parameters":{"properties":{"code":{"description":"the Python code you want to run","type":"string"}},"required":["code"],"type":"object"}},{"description":"use online search engine to search","name":"WebSearch","parameters":{"properties":{"query":{"description":"the search content, keep it simple, no longer than 36 characters","type":"string"}},"required":["query"],"type":"object"}},{"description":"plot a matrix","name":"PlotMatrix","parameters":{"properties":{"data":{"items":{"properties":{"datasets":{"items":{"items":{"properties":{"x":{"description":"the x value","type":"number"},"y":{"description":"the y value","type":"number"}},"required":["x","y"],"type":"object"},"type":"array"},"type":"array"}},"type":"object"},"type":"array"}},"required":["data"],"type":"object"}}]`
+
 
 type RunPythonParameters struct {
 	
@@ -105,4 +105,3 @@ func (f *FunctionCaller) Call(fnName string, paramJSON string) (string, error) {
 		return "", fmt.Errorf("unknown function %s", fnName)
 	}
 }
-

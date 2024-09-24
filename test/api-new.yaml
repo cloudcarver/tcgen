@@ -1,0 +1,92 @@
+openapi: "3.1.0"
+
+info:
+  description: Tool Call Server API
+  title: Tool Call Server API
+  version: 0.1.0-alpha
+  
+paths:
+  /api/v1/test:
+    get:
+      responses:
+        "200":
+          description: OK
+  /tcgen/tc-call/plot_matrix:
+    post:
+      description: plot a matrix
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlotMatrixParameters'
+      responses: null
+  /tcgen/tc-call/run_python:
+    post:
+      description: Python code execution
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RunPythonParameters'
+      responses: null
+  /tcgen/tc-call/web_search:
+    post:
+      description: use online search engine to search
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebSearchParameters'
+      responses: null
+  
+components:
+  schemas:
+    PlotMatrixParameters:
+      properties:
+        data:
+          items:
+            properties:
+              datasets:
+                items:
+                  items:
+                    properties:
+                      x:
+                        description: the x value
+                        type: number
+                      "y":
+                        description: the y value
+                        type: number
+                    required:
+                      - x
+                      - "y"
+                    type: object
+                  type: array
+                type: array
+            type: object
+          type: array
+      required:
+        - data
+      type: object
+    RunPythonParameters:
+      properties:
+        code:
+          description: the Python code you want to run
+          type: string
+      required:
+        - code
+      type: object
+    WebSearchParameters:
+      properties:
+        query:
+          description: the search content, keep it simple, no longer than 36 characters
+          type: string
+      required:
+        - query
+      type: object
+    test:
+      properties:
+        id:
+          format: int64
+          type: integer
+      type: object
+  
