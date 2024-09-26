@@ -3,8 +3,8 @@ input:
 openapi:
   overrideFile: api.yaml
   out: api-new.yaml
-  pathPrefix: /tcgen/tc-call
   paths:
+    prefix: /tcgen/tc-call
     methods:
       override:
         security:

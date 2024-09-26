@@ -5,49 +5,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cloudcarver/edc/conf"
+	"github.com/cloudcarver/tcgen/pkg/config"
 	"github.com/cloudcarver/tcgen/pkg/core"
 	"gopkg.in/yaml.v3"
 )
-
-type Methods struct {
-	Override any `yaml:"override"`
-}
-
-type Paths struct {
-	Methods Methods `yaml:"methods"`
-}
-
-type OpenAPI struct {
-	OverrideFile string `yaml:"overrideFile"`
-	Out          string `yaml:"out"`
-	PathPrefix   string `yaml:"pathPrefix"`
-	Paths        Paths  `yaml:"paths"`
-}
-
-type GoInterpreter struct {
-	OutPath string `yaml:"outPath"`
-	Package string `yaml:"package"`
-}
-
-type Input struct {
-	Path string `yaml:"path"`
-}
-
-type Config struct {
-	Input         Input          `yaml:"input"`
-	OpenAPI       *OpenAPI       `yaml:"openapi"`
-	GoInterpreter *GoInterpreter `yaml:"goInterpreter"`
-}
-
-func NewConfig(path string) (*Config, error) {
-	cfg := &Config{}
-	err := conf.FetchConfig("tcgen.yaml", "TCGEN_", cfg)
-	if err != nil {
-		return nil, err
-	}
-	return cfg, nil
-}
 
 func must(err error) {
 	if err != nil {
@@ -69,7 +30,7 @@ func main() {
 		return
 	}
 
-	cfg, err := NewConfig("tcgen.yaml")
+	cfg, err := config.NewConfig("tcgen.yaml")
 	must(err)
 
 	if len(cfg.Input.Path) == 0 {
@@ -86,7 +47,7 @@ func main() {
 			raw, err = os.ReadFile(cfg.OpenAPI.OverrideFile)
 			must(err)
 		}
-		result, err := core.GenerateOpenAPISpec(raw, data, cfg.OpenAPI.PathPrefix)
+		result, err := core.GenerateOpenAPISpec(raw, data, cfg.OpenAPI)
 		must(err)
 
 		must(os.WriteFile(cfg.OpenAPI.Out, []byte(result), 0644))

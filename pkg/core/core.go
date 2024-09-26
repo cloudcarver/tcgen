@@ -9,6 +9,7 @@ import (
 	"text/template"
 
 	"github.com/cloudcarver/tcgen/internal/utils"
+	"github.com/cloudcarver/tcgen/pkg/config"
 	"github.com/getkin/kin-openapi/openapi3"
 	"gopkg.in/yaml.v3"
 )
@@ -102,11 +103,16 @@ func descriptionToComment(description string) string {
 	return indent(rtn, 4)
 }
 
-func GenerateOpenAPISpec(original []byte, data map[string]any, pathPrefix string) (string, error) {
+func GenerateOpenAPISpec(original []byte, data map[string]any, cfg *config.OpenAPI) (string, error) {
 
 	type Parameters struct {
 		Name string
 		Spec string
+	}
+
+	pathPrefix := "/tcgen"
+	if cfg.Paths.Prefix != "" {
+		pathPrefix = cfg.Paths.Prefix
 	}
 
 	if original == nil {
@@ -123,6 +129,10 @@ func GenerateOpenAPISpec(original []byte, data map[string]any, pathPrefix string
 	parameters := []Parameters{}
 
 	onFunc := func(f Function) error {
+		if cfg.Paths.Skip {
+			return nil
+		}
+
 		functions = append(functions, f)
 		if doc.Paths == nil {
 			doc.Paths = openapi3.NewPaths()
