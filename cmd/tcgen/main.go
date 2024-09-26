@@ -65,7 +65,7 @@ func main() {
 	flag.Parse()
 
 	if version {
-		fmt.Println("v0.3.1")
+		fmt.Println("v0.3.2")
 		return
 	}
 
@@ -80,7 +80,6 @@ func main() {
 	var data map[string]any
 	must(yaml.Unmarshal(raw, &data))
 
-	fmt.Println(cfg.OpenAPI != nil, cfg.GoInterpreter != nil)
 	if cfg.OpenAPI != nil {
 		var raw []byte
 		if len(cfg.OpenAPI.OverrideFile) != 0 {
