@@ -339,6 +339,9 @@ func parseArrayToStruct(name string, data map[string]any) (string, string, error
 	}
 
 	if itemsType == "object" {
+		if _, ok := items["properties"]; !ok {
+			return "[]any", "", nil
+		}
 		propStructName := utils.UpperFirst(name) + "Item"
 		propStructDef, err := parseObjectToStruct(propStructName, items)
 		if err != nil {
@@ -379,7 +382,7 @@ func parseObjectToStruct(structName string, object map[string]any) (string, erro
 	var structDef string
 
 	if _, ok := object["properties"]; !ok {
-		return "", errors.New("properties is missing")
+		return "", nil
 	}
 
 	properties, ok = object["properties"].(map[string]any)
@@ -428,13 +431,17 @@ func parseObjectToStruct(structName string, object map[string]any) (string, erro
 		_, isRequired := requiredFields[propName]
 
 		if propType == "object" {
-			propStructName := addGlobalType(utils.UpperFirst(propName))
-			propStructDef, err := parseObjectToStruct(propStructName, prop)
-			if err != nil {
-				return "", err
+			if _, ok := prop["properties"]; !ok {
+				propType = "any"
+			} else {
+				propStructName := addGlobalType(utils.UpperFirst(propName))
+				propStructDef, err := parseObjectToStruct(propStructName, prop)
+				if err != nil {
+					return "", err
+				}
+				propType = propStructName
+				structDef += propStructDef + "\n"
 			}
-			propType = propStructName
-			structDef += propStructDef + "\n"
 		} else if propType == "array" {
 			propStructName, propStructDef, err := parseArrayToStruct(propName, prop)
 			if err != nil {

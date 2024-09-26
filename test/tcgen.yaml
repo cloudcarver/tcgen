@@ -1,5 +1,5 @@
 input:
-  path: test.yaml
+  path: tools.yaml
 openapi:
   overrideFile: api.yaml
   out: api-new.yaml

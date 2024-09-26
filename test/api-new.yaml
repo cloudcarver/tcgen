@@ -33,6 +33,26 @@ paths:
       responses:
         "200":
           description: OK
+  /tcgen/tc-call/set:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetParameters'
+      responses:
+        "200":
+          description: OK
+  /tcgen/tc-call/set_list:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetListParameters'
+      responses:
+        "200":
+          description: OK
   /tcgen/tc-call/web_search:
     post:
       description: use online search engine to search
@@ -82,6 +102,30 @@ components:
           type: string
       required:
         - code
+      type: object
+    SetListParameters:
+      properties:
+        key:
+          description: the key of the value
+          type: string
+        value:
+          items:
+            type: object
+          type: array
+      required:
+        - key
+        - value
+      type: object
+    SetParameters:
+      properties:
+        key:
+          description: the key of the value
+          type: string
+        value:
+          type: object
+      required:
+        - key
+        - value
       type: object
     WebSearchParameters:
       properties:

@@ -8,6 +8,28 @@ functions:
         code:
           type: string
           description: the Python code you want to run
+  - name: Set
+    parameters:
+      type: object
+      required: [key, value]
+      properties:
+        key:
+          type: string
+          description: the key of the value
+        value:
+          type: object
+  - name: SetList
+    parameters:
+      type: object
+      required: [key, value]
+      properties:
+        key:
+          type: string
+          description: the key of the value
+        value:
+          type: array
+          items:
+            type: object
   - name: WebSearch
     description: use online search engine to search
     parameters:

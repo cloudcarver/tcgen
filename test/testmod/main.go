@@ -35,6 +35,14 @@ func (e *MockExecutor) WebSearch(params *fn.WebSearchParameters) (string, error)
 	return "success", nil
 }
 
+func (e *MockExecutor) Set(params *fn.SetParameters) (string, error) {
+	return "success", nil
+}
+
+func (e *MockExecutor) SetList(params *fn.SetListParameters) (string, error) {
+	return "success", nil
+}
+
 func test(t ...bool) (string, error) {
 	for _, v := range t {
 		if !v {
