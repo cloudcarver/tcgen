@@ -2,7 +2,7 @@ package core
 
 var structTemplate = `type {{.StructName}} struct {
 	{{range .Fields}}
-	// {{.Description}}
+{{.Description}}
 	{{.Name}} {{.Type}} {{.Tag}}
 	{{end}}
 }`
@@ -22,7 +22,7 @@ func (r *{{.ParameterType}}) Parse(raw string) error {
 {{end}}
 type FunctionExecutorInterface interface {
 	{{range .Functions}}
-	// {{.Description}}
+{{.Description}}
 	{{.Name}}(params *{{.ParameterType}}) (string, error)
 	{{end}}
 }

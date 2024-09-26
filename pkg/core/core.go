@@ -15,6 +15,10 @@ import (
 
 var globalTypeNameCounter = map[string]int{}
 
+func ResetGlobalTypeNameCounter() {
+	globalTypeNameCounter = map[string]int{}
+}
+
 func process(data map[string]any, onFunc func(f Function) error, onParam func(name string, params map[string]any) error) error {
 	for k := range data {
 		if k != "functions" {
@@ -83,6 +87,19 @@ func fnNameToAPIPath(fnName string) string {
 		}
 	}
 	return rtn
+}
+
+func descriptionToComment(description string) string {
+	description = strings.Trim(description, " \n\t\r")
+	var rtn = ""
+	var arr = strings.Split(description, "\n")
+	for i, line := range arr {
+		rtn += "// " + line
+		if i != len(arr)-1 {
+			rtn += "\n"
+		}
+	}
+	return indent(rtn, 4)
 }
 
 func GenerateOpenAPISpec(original []byte, data map[string]any, pathPrefix string) (string, error) {
@@ -275,6 +292,10 @@ func GenerateToolInterfaces(packageName string, data map[string]any) (string, er
 		return "", err
 	}
 
+	for i := range functions {
+		functions[i].Description = descriptionToComment(functions[i].Description)
+	}
+
 	buf := bytes.NewBuffer([]byte{})
 	if err := tcTemplate.Execute(buf, CodeTemplateVars{
 		PackageName: packageName,
@@ -418,7 +439,7 @@ func parseObjectToStruct(structName string, object map[string]any) (string, erro
 		fields = append(fields, Field{
 			Name:        utils.UpperFirst(propName),
 			Type:        utils.IfElse(isRequired || strings.HasPrefix(propType, "[]"), "", "*") + propType,
-			Description: propDescription,
+			Description: descriptionToComment(propDescription),
 			Tag:         "`json:\"" + propName + "\" yaml:\"" + propName + "\"`",
 		})
 	}

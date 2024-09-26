@@ -65,7 +65,7 @@ func main() {
 	flag.Parse()
 
 	if version {
-		fmt.Println("v0.3.0")
+		fmt.Println("v0.3.1")
 		return
 	}
 
@@ -80,6 +80,7 @@ func main() {
 	var data map[string]any
 	must(yaml.Unmarshal(raw, &data))
 
+	fmt.Println(cfg.OpenAPI != nil, cfg.GoInterpreter != nil)
 	if cfg.OpenAPI != nil {
 		var raw []byte
 		if len(cfg.OpenAPI.OverrideFile) != 0 {
@@ -91,6 +92,8 @@ func main() {
 
 		must(os.WriteFile(cfg.OpenAPI.Out, []byte(result), 0644))
 	}
+	core.ResetGlobalTypeNameCounter()
+
 	if cfg.GoInterpreter != nil {
 		result, err := core.GenerateToolInterfaces(cfg.GoInterpreter.Package, data)
 		must(err)

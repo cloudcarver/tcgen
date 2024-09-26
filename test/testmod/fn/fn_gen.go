@@ -8,38 +8,39 @@ import (
 
 type RunPythonParameters struct {
 	
-	// the Python code you want to run
+    // the Python code you want to run
 	Code string `json:"code" yaml:"code"`
 	
 }
 
 type WebSearchParameters struct {
 	
-	// the search content, keep it simple, no longer than 36 characters
+    // the search content, keep it simple, no longer than 36 characters
 	Query string `json:"query" yaml:"query"`
 	
 }
 
 type DatasetsItem struct {
 	
-	// the x value
+    // the x value
+    // test multiple lines description
 	X float64 `json:"x" yaml:"x"`
 	
-	// the y value
+    // the y value
 	Y float64 `json:"y" yaml:"y"`
 	
 }
 
 type DataItem struct {
 	
-	// 
+    // 
 	Datasets [][]DatasetsItem `json:"datasets" yaml:"datasets"`
 	
 }
 
 type PlotMatrixParameters struct {
 	
-	// 
+    // 
 	Data []DataItem `json:"data" yaml:"data"`
 	
 }
@@ -59,13 +60,14 @@ func (r *PlotMatrixParameters) Parse(raw string) error {
 
 type FunctionExecutorInterface interface {
 	
-	// Python code execution
+    // Python code execution
 	RunPython(params *RunPythonParameters) (string, error)
 	
-	// use online search engine to search
+    // use online search engine to search
 	WebSearch(params *WebSearchParameters) (string, error)
 	
-	// plot a matrix
+    // plot a matrix
+    // test multiple lines description
 	PlotMatrix(params *PlotMatrixParameters) (string, error)
 	
 }

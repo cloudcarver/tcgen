@@ -1,6 +1,7 @@
 BIN=$(shell basename $(PWD))
 
 build:
+	rm -f bin/$(BIN)
 	go build -o bin/$(BIN) cmd/tcgen/main.go
 
 install: build

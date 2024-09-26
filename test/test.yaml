@@ -18,7 +18,9 @@ functions:
           type: string
           description: the search content, keep it simple, no longer than 36 characters
   - name: PlotMatrix
-    description: plot a matrix 
+    description: |
+      plot a matrix
+      test multiple lines description 
     parameters:
       type: object
       required: [data]
@@ -38,7 +40,9 @@ functions:
                     properties:
                       x:
                         type: number
-                        description: the x value
+                        description: |
+                          the x value
+                          test multiple lines description
                       y:
                         type: number
                         description: the y value

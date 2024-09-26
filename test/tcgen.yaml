@@ -10,5 +10,5 @@ openapi:
         security:
           - bearerAuth: []
 goInterpreter:
-  outPath: /testmod/fn/fn_gen.go
+  outPath: ./testmod/fn/fn_gen.go
   package: fn
